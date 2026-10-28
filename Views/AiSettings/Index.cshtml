@@ -1,0 +1,118 @@
+@model AiProviderSettingsPageModel
+@{
+    ViewData["Title"] = "Configurar IA";
+}
+
+<section class="hero settings-hero">
+    <div class="eyebrow"><span class="status-dot"></span> PROVEEDOR DE IA</div>
+    <h1>Tu modelo.<br /><span>Tu elección.</span></h1>
+    <p class="hero-copy">Conecta un servicio en la nube o un modelo local. Elige un proveedor compatible con la API de chat de OpenAI, introduce el modelo disponible en tu cuenta y prueba la conexión.</p>
+</section>
+
+<div class="workspace settings-workspace">
+    @if (Model.StatusMessage is not null)
+    {
+        <div class="alert success-alert" role="status">@Model.StatusMessage</div>
+    }
+    @if (Model.ErrorMessage is not null)
+    {
+        <div class="alert error-alert" role="alert">@Model.ErrorMessage</div>
+    }
+
+    <section class="panel settings-panel" aria-labelledby="settings-heading">
+        <div class="panel-heading">
+            <div>
+                <span class="step-label">CONFIGURACIÓN ACTIVA</span>
+                <h2 id="settings-heading">Proveedor y modelo</h2>
+            </div>
+            @if (Model.HasSavedApiKey)
+            {
+                <span class="saved-key-badge">● Clave guardada</span>
+            }
+            else
+            {
+                <span class="input-hint">Sin clave guardada</span>
+            }
+        </div>
+
+        <form asp-controller="AiSettings" asp-action="Save" method="post">
+            <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+
+            <label for="provider-select" class="field-label">Proveedor</label>
+            <select asp-for="Settings.Provider" class="form-select settings-select" id="provider-select" aria-label="Proveedor">
+                @foreach (var preset in Model.Presets)
+                {
+                    <option value="@preset.Name"
+                            data-url="@preset.BaseUrl"
+                            data-model="@preset.SuggestedModel"
+                            data-note="@preset.Note">@preset.Name — @preset.Note</option>
+                }
+            </select>
+            <span asp-validation-for="Settings.Provider" class="field-error"></span>
+
+            <div class="settings-fields">
+                <div>
+                    <label asp-for="Settings.BaseUrl" class="field-label">URL base de la API</label>
+                    <input asp-for="Settings.BaseUrl" class="form-control settings-input" autocomplete="url" />
+                    <span asp-validation-for="Settings.BaseUrl" class="field-error"></span>
+                    <span class="field-help">Se usará el endpoint compatible <code>/chat/completions</code>.</span>
+                </div>
+                <div>
+                    <label asp-for="Settings.Model" class="field-label">Identificador del modelo</label>
+                    <input asp-for="Settings.Model" class="form-control settings-input" autocomplete="off" placeholder="Ej.: llama3.2, gpt-4o-mini" />
+                    <span asp-validation-for="Settings.Model" class="field-error"></span>
+                    <span class="field-help">Escribe el nombre exacto de un modelo habilitado en tu cuenta o servidor local.</span>
+                </div>
+            </div>
+
+            <label asp-for="Settings.ApiKey" class="field-label key-label">API key <span>(opcional para modelos locales)</span></label>
+            <input asp-for="Settings.ApiKey"
+                   class="form-control settings-input"
+                   autocomplete="new-password"
+                   placeholder="@(Model.HasSavedApiKey ? "Guardada; deja vacío para conservarla" : "Pega aquí la clave emitida por el proveedor")" />
+            <span asp-validation-for="Settings.ApiKey" class="field-error"></span>
+            @if (Model.HasSavedApiKey)
+            {
+                <label class="remove-key-option">
+                    <input asp-for="Settings.RemoveSavedApiKey" />
+                    <span>Eliminar la clave guardada</span>
+                </label>
+            }
+
+            <div class="security-note">
+                <strong>Almacenamiento local y seguro.</strong>
+                La API key se cifra con ASP.NET Core Data Protection y se guarda en el perfil local de esta máquina. Nunca se muestra de nuevo ni se incluye en el repositorio.
+            </div>
+
+            <div class="form-footer settings-footer">
+                <a class="back-link" asp-controller="Home" asp-action="Index">← Volver al analizador</a>
+                <div class="settings-actions">
+                    <button class="btn save-button" type="submit" name="testConnection" value="false">Guardar configuración</button>
+                    <button class="btn analyze-button" type="submit" name="testConnection" value="true">
+                        <span>Guardar y probar</span><span aria-hidden="true">→</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </section>
+
+    <aside class="compatibility-note">
+        <span class="step-label">COMPATIBILIDAD</span>
+        <p>La conexión genérica funciona con servicios que aceptan <code>POST /chat/completions</code> y autenticación Bearer. Incluye OpenAI, OpenRouter, Groq, DeepSeek, Mistral, Together AI, Gemini compatible, Ollama y LM Studio. Otros proveedores requieren una API compatible; los flujos propietarios como OAuth o APIs no compatibles todavía no están incluidos.</p>
+        <p><strong>Seguridad:</strong> usa la aplicación en tu equipo o en una red de confianza. No la publiques en Internet: la configuración no incluye inicio de sesión de administrador.</p>
+    </aside>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        const providerSelect = document.querySelector('[name="Settings.Provider"]');
+        providerSelect?.addEventListener("change", () => {
+            const option = providerSelect.selectedOptions[0];
+            const baseUrl = document.getElementById("Settings_BaseUrl");
+            const model = document.getElementById("Settings_Model");
+            if (option.dataset.url !== "https://") baseUrl.value = option.dataset.url;
+            if (option.dataset.model) model.value = option.dataset.model;
+        });
+    </script>
+}

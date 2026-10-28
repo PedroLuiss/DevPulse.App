@@ -1,0 +1,132 @@
+@model CodeAuditPageModel
+@{
+    ViewData["Title"] = "Diagnóstico inteligente";
+}
+
+<section class="hero">
+    <div class="eyebrow"><span class="status-dot"></span> DEVLOG INTELLIGENCE</div>
+    <h1>Encuentra la señal<br />dentro del <span>ruido.</span></h1>
+    <p class="hero-copy">Pega un error, stack trace o fragmento de código. Obtén un diagnóstico claro, riesgos y una propuesta de solución.</p>
+</section>
+
+<div class="workspace">
+    <div class="active-provider @(Model.IsProviderConfigured ? "provider-ready" : "provider-missing")">
+        <span>
+            <strong>@(Model.IsProviderConfigured ? "IA lista" : "Configura tu proveedor de IA")</strong>
+            @if (Model.IsProviderConfigured)
+            {
+                <span> · @Model.ActiveProvider / @Model.ActiveModel</span>
+            }
+        </span>
+        <a asp-controller="AiSettings" asp-action="Index">@(Model.IsProviderConfigured ? "Cambiar modelo" : "Configurar ahora") →</a>
+    </div>
+
+    <section class="panel input-panel" aria-labelledby="input-heading">
+        <div class="panel-heading">
+            <div>
+                <span class="step-label">01 / ENTRADA</span>
+                <h2 id="input-heading">¿Qué está fallando?</h2>
+            </div>
+            <span class="input-hint">Hasta 100.000 caracteres</span>
+        </div>
+
+        <form asp-action="Analyze" method="post">
+            <div asp-validation-summary="ModelOnly" class="validation-summary"></div>
+            <label asp-for="Request.AuditType" class="field-label">Enfoque del análisis</label>
+            <select asp-for="Request.AuditType" asp-items="Model.AuditTypes" class="form-select audit-select"></select>
+            <span asp-validation-for="Request.AuditType" class="field-error"></span>
+
+            <label asp-for="Request.SourceCode" class="field-label source-label">Log, stack trace o código</label>
+            <textarea asp-for="Request.SourceCode"
+                      class="form-control code-input"
+                      placeholder="Pega aquí el error o código que quieres analizar..."
+                      spellcheck="false"
+                      autocapitalize="off"></textarea>
+            <span asp-validation-for="Request.SourceCode" class="field-error"></span>
+
+            <div class="form-footer">
+                <span class="privacy-note">El contenido se envía al proveedor de IA configurado.</span>
+                <button class="btn analyze-button" type="submit">
+                    <span>Analizar</span><span aria-hidden="true">→</span>
+                </button>
+            </div>
+        </form>
+    </section>
+
+    @if (Model.ErrorMessage is not null)
+    {
+        <div class="alert error-alert" role="alert">@Model.ErrorMessage</div>
+    }
+
+    @if (Model.Result is not null)
+    {
+        <section class="results" aria-labelledby="results-heading">
+            <div class="results-title">
+                <div>
+                    <span class="step-label">02 / INFORME</span>
+                    <h2 id="results-heading">Resultado del análisis</h2>
+                </div>
+                <span class="risk-badge risk-@Model.Result.SecurityRisk.ToLowerInvariant()">
+                    Riesgo: @Model.Result.SecurityRisk
+                </span>
+            </div>
+
+            <div class="result-grid">
+                <article class="panel score-card">
+                    <span class="result-label">PUNTUACIÓN DE SALUD</span>
+                    <div class="score-value">@Model.Result.HealthScore<span>/100</span></div>
+                    <progress class="health-meter" value="@Model.Result.HealthScore" max="100" aria-label="Puntuación de salud"></progress>
+                    <p>@Model.Result.ExecutiveSummary</p>
+                </article>
+
+                <article class="panel issues-card">
+                    <span class="result-label">HALLAZGOS</span>
+                    @if (Model.Result.DetectedIssues.Count > 0)
+                    {
+                        <ul class="issue-list">
+                            @foreach (var issue in Model.Result.DetectedIssues)
+                            {
+                                <li>@issue</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <p>No se reportaron hallazgos.</p>
+                    }
+                </article>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(Model.Result.RefactoredCode))
+            {
+                <article class="panel code-result">
+                    <div class="code-heading">
+                        <div>
+                            <span class="result-label">PROPUESTA</span>
+                            <h3>Código corregido</h3>
+                        </div>
+                        <button class="copy-button" type="button" data-copy-target="refactored-code">Copiar código</button>
+                    </div>
+                    <pre><code id="refactored-code">@Model.Result.RefactoredCode</code></pre>
+                </article>
+            }
+        </section>
+    }
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.querySelectorAll("[data-copy-target]").forEach((button) => {
+            button.addEventListener("click", async () => {
+                const code = document.getElementById(button.dataset.copyTarget);
+                if (!code) return;
+
+                await navigator.clipboard.writeText(code.textContent);
+                const originalText = button.textContent;
+                button.textContent = "Copiado";
+                window.setTimeout(() => button.textContent = originalText, 1600);
+            });
+        });
+    </script>
+}
